@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LeRobot · PushT 推方块体验</title>
+<style>
+  :root {
+    --bg: #0f1216;
+    --panel: #171c22;
+    --panel2: #1d242c;
+    --line: #2a323c;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --accent: #4cc38a;
+    --accent2: #3aa17a;
+    --warn: #e0b341;
+    --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 60px;
+    line-height: 1.6;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0 0 4px;
+    letter-spacing: .5px;
+  }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+  .stage {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  canvas {
+    background: #0b0e11;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.45);
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .panel {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .mode-btns { display: flex; flex-direction: column; gap: 8px; }
+  .mode-btns button {
+    text-align: left;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .mode-btns button:hover { border-color: #3a4550; }
+  .mode-btns button.active {
+    border-color: var(--accent);
+    background: rgba(76,195,138,.10);
+  }
+  .mode-btns button small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .stat { font-size: 14px; }
+  .stat b { color: var(--accent); font-size: 20px; font-weight: 700; }
+  .btn {
+    background: var(--accent);
+    color: #08120c;
+    border: none;
+    border-radius: 9px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .btn:hover { background: var(--accent2); }
+  .btn.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+  .note { font-size: 12.5px; color: var(--muted); }
+  .note code, .concept code {
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--blue);
+  }
+  .concept { font-size: 13px; color: var(--muted); }
+  .concept b { color: var(--text); font-weight: 600; }
+  .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--muted); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+  .banner {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text);
+    background: rgba(76,195,138,.12);
+    border: 1px solid rgba(76,195,138,.35);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-height: 20px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <h1>🤖 LeRobot · PushT 推方块</h1>
+  <p class="sub">一个零依赖的浏览器复刻，帮你直观理解「模仿学习」在训练什么</p>
+
+  <div class="stage">
+    <canvas id="c" width="560" height="560"></canvas>
+
+    <div class="panel">
+      <div class="card">
+        <h2>操作模式</h2>
+        <div class="mode-btns">
+          <button id="modeManual" class="active">
+            🖱 手动玩 <small>按住拖动白色圆盘，把灰色 T 块推到绿色虚线目标上</small>
+          </button>
+          <button id="modeAuto">
+            ✨ 自动演示 <small>模拟一个「训练好的策略」推方块</small>
+          </button>
+          <button id="modeRandom">
+            🎲 随机动作 <small>模拟一个「没训练」的随机策略</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>状态</h2>
+        <div class="row">
+          <span class="stat">成功次数 <b id="score">0</b></span>
+          <span class="stat">连续 <b id="streak">0</b></span>
+        </div>
+        <div style="margin-top:12px" class="row">
+          <button id="resetBtn" class="btn">↺ 重置</button>
+          <button id="newTargetBtn" class="btn ghost">换一个目标位置</button>
+        </div>
+        <div class="banner" id="banner">把 T 块推到绿色目标上试试 →</div>
+      </div>
+
+      <div class="card">
+        <h2>图例</h2>
+        <div class="legend">
+          <span><span class="dot" style="background:#e8edf2"></span>圆盘 = 智能体（agent，你控制它 / 策略控制它）</span>
+          <span><span class="dot" style="background:#9aa7b0"></span>灰色 T 块 = 要推动的物体（block）</span>
+          <span><span class="dot" style="background:rgba(76,195,138,.7)"></span>绿色虚线 = 目标位姿（goal，位置 + 朝向）</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>对应 LeRobot 概念</h2>
+        <div class="concept">
+          <p><b>观测 observation</b> = 圆盘位置 + 图像/状态；<b>动作 action</b> = 圆盘每一步往哪移。</p>
+          <p>真实 LeRobot 就是采一批人类演示（<code>lerobot-record</code>），让策略学「看到这画面 → 该往哪推」，这就是<b>行为克隆 / 模仿学习</b>。</p>
+          <p>训练后的策略用 <code>lerobot-eval --env.type=pusht</code> 在 <code>gym_pusht</code>（pymunk 2D 物理）里评测，本页就是那个任务的简化版。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // ---------- 几何常量（T 块由两个矩形组成：竖直"腿" + 顶部横"帽"）----------
+  const puckR = 20;               // 圆盘半径（大一点更好推、更好控制）
+  const stem = { hw: 24, hh: 64, cx: 0,  cy: 16  };  // 竖腿（局部坐标）
+  const bar  = { hw: 76, hh: 24, cx: 0,  cy: -48 };  // 顶部横帽
+  const blockRadius = 95;         // 自动演示时"绕到块后方"的距离
+
+  // ---------- 世界状态 ----------
+  let block = { x: 250, y: 320, a: 0, vx: 0, vy: 0, va: 0 };
+  let target = { x: 395, y: 205, a: 0 };
+  let puck = { x: 150, y: 440 };
+
+  let mode = 'manual';            // manual | auto | random
+  let score = 0, streak = 0, success = false;
+  let randomGoal = null, randomT = 0;
+
+  // ---------- 工具：旋转 ----------
+  function rot(p, a) {
+    const c = Math.cos(a), s = Math.sin(a);
+    return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function angleDiff(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    return d;
+  }
+
+  // ---------- 重置 ----------
+  function reset(newTarget) {
+    block = { x: 250, y: 320, a: 0, vx: 0, vy: 0, va: 0 };
+    puck = { x: 150, y: 440 };
+    if (newTarget) target = { x: 150 + Math.random() * (W - 300), y: 150 + Math.random() * (H - 300), a: 0 };
+    success = false;
+    setBanner('把 T 块推到绿色目标上试试 →', '');
+  }
+
+  function setBanner(text, cls) {
+    const b = document.getElementById('banner');
+    b.textContent = text;
+    b.style.background = '';
+    b.style.borderColor = '';
+    if (cls === 'ok') { b.style.background = 'rgba(76,195,138,.18)'; b.style.borderColor = 'rgba(76,195,138,.6)'; }
+  }
+
+  // ---------- 物理：T 块与圆盘碰撞 ----------
+  function collideRect(rectLocal) {
+    // 圆盘中心变换到该矩形的局部坐标系（随块旋转）
+    const dx = puck.x - block.x, dy = puck.y - block.y;
+    const lp = rot({ x: dx - rectLocal.cx, y: dy - rectLocal.cy }, -block.a);
+    const px = lp.x, py = lp.y;
+    const inside = Math.abs(px) <= rectLocal.hw && Math.abs(py) <= rectLocal.hh;
+    if (!inside) return null;
+    // 最小穿透轴 → 推出方向（局部）
+    const penX = rectLocal.hw - Math.abs(px);
+    const penY = rectLocal.hh - Math.abs(py);
+    let lpush;
+    if (penX < penY) lpush = { x: Math.sign(px || 1) * penX, y: 0 };
+    else lpush = { x: 0, y: Math.sign(py || 1) * penY };
+    // 转回世界
+    const wpush = rot(lpush, block.a);
+    // 接触点（世界坐标）
+    const contact = { x: block.x + rot({ x: px, y: py }, block.a).x, y: block.y + rot({ x: px, y: py }, block.a).y };
+    return { wpush, contact };
+  }
+
+  function checkSuccess() {
+    const d = Math.hypot(block.x - target.x, block.y - target.y);
+    const da = Math.abs(angleDiff(block.a, target.a));
+    const ok = d < 26 && da < 0.30;
+    if (ok && !success) {
+      success = true;
+      score++; streak++;
+      document.getElementById('score').textContent = score;
+      document.getElementById('streak').textContent = streak;
+      setBanner('✅ 成功！这就是策略学会的目标位姿对齐', 'ok');
+    } else if (!ok && success) {
+      success = false;
+      streak = 0;
+      document.getElementById('streak').textContent = 0;
+    }
+  }
+
+  function goalAssist() {
+    // 块接近目标时的"磁性吸附"，降低最后一步对齐难度
+    const d = Math.hypot(block.x - target.x, block.y - target.y);
+    const da = angleDiff(target.a, block.a);
+    if (d < 72 && Math.abs(da) < 0.55) {
+      const pull = 0.10;
+      block.x += (target.x - block.x) * pull;
+      block.y += (target.y - block.y) * pull;
+      block.a += da * pull;
+      block.vx *= 0.7; block.vy *= 0.7; block.va *= 0.7;
+    }
+  }
+
+  function physics(dt) {
+    // 自动模式由 autoPolicy 直接控制块，跳过碰撞物理，避免抖动
+    if (mode !== 'auto') {
+      // 阻尼 + 积分
+      block.x += block.vx * dt; block.y += block.vy * dt;
+      block.a += block.va * dt;
+      block.vx *= 0.90; block.vy *= 0.90; block.va *= 0.92;
+
+      // 撞墙
+      const m = 34;
+      if (block.x < m) { block.x = m; block.vx *= -0.4; }
+      if (block.x > W - m) { block.x = W - m; block.vx *= -0.4; }
+      if (block.y < m) { block.y = m; block.vy *= -0.4; }
+      if (block.y > H - m) { block.y = H - m; block.vy *= -0.4; }
+
+      // 圆盘对 T 块的推动（两个矩形都检测）
+      for (const r of [stem, bar]) {
+        const hit = collideRect(r);
+        if (hit) {
+          // 位置：完全推出重叠，推动更干脆、更跟手
+          block.x -= hit.wpush.x;
+          block.y -= hit.wpush.y;
+          // 速度：多传一点，块更容易被带动
+          block.vx -= hit.wpush.x * 0.6;
+          block.vy -= hit.wpush.y * 0.6;
+          // 扭矩：大幅弱化，避免一碰就乱转
+          const rx = hit.contact.x - block.x, ry = hit.contact.y - block.y;
+          block.va += (rx * hit.wpush.y - ry * hit.wpush.x) * 0.00010;
+        }
+      }
+      block.va = clamp(block.va, -0.035, 0.035);
+
+      // 接近目标时的磁性吸附
+      goalAssist();
+    }
+
+    // 成功判定：位置 + 朝向都接近
+    checkSuccess();
+  }
+
+  // ---------- 三种策略 ----------
+  function autoPolicy() {
+    // 从块指向目标的方向
+    let dx = target.x - block.x, dy = target.y - block.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 2) { checkSuccess(); return; }
+    dx /= len; dy /= len;
+
+    block.vx = block.vy = block.va = 0;
+
+    // 找到 T 块在 -dir（背后）方向最靠后的角点，把圆盘精确贴上去，形成"在推"的视觉
+    const c = Math.cos(block.a), s = Math.sin(block.a);
+    const corners = [
+      [-24, -48], [24, -48], [-24, 80], [24, 80],   // 竖腿四角
+      [-76, -72], [76, -72], [-76, -24], [76, -24], // 横帽四角
+    ];
+    let bestProj = Infinity, bx = block.x, by = block.y;
+    for (const [cx, cy] of corners) {
+      const wx = cx * c - cy * s, wy = cx * s + cy * c;
+      const proj = wx * dx + wy * dy;
+      if (proj < bestProj) { bestProj = proj; bx = block.x + wx; by = block.y + wy; }
+    }
+    puck.x = bx - dx * (puckR - 4);
+    puck.y = by - dy * (puckR - 4);
+
+    // 直接把块朝目标推进（速度随距离衰减，接近时变慢）
+    const speed = Math.min(2.5, len * 0.05 + 0.3);
+    block.x += dx * speed;
+    block.y += dy * speed;
+    // 缓慢对齐朝向（本 demo 目标朝向与初始一致，通常无需旋转）
+    block.a += angleDiff(target.a, block.a) * 0.08;
+
+    block.x = clamp(block.x, 34, W - 34);
+    block.y = clamp(block.y, 34, H - 34);
+    checkSuccess();
+  }
+
+  function randomPolicy() {
+    randomT -= 1;
+    if (randomT <= 0) {
+      randomGoal = { x: 40 + Math.random() * (W - 80), y: 40 + Math.random() * (H - 80) };
+      randomT = 18 + Math.floor(Math.random() * 30);
+    }
+    puck.x += (randomGoal.x - puck.x) * 0.25;
+    puck.y += (randomGoal.y - puck.y) * 0.25;
+  }
+
+  function step() {
+    // 策略更新圆盘位置
+    if (mode === 'auto') autoPolicy();
+    else if (mode === 'random') randomPolicy();
+    physics(1);   // 每帧一次，简单起见 dt=1
+  }
+
+  // ---------- 渲染 ----------
+  function drawT(x, y, a, fill, stroke) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(a);
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    for (const r of [stem, bar]) {
+      ctx.beginPath();
+      ctx.roundRect(r.cx - r.hw, r.cy - r.hh, r.hw * 2, r.hh * 2, 4);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+
+    // 网格
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let i = 40; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+    for (let i = 40; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+
+    // 目标（绿色虚线 T）
+    ctx.save();
+    ctx.translate(target.x, target.y);
+    ctx.rotate(target.a);
+    ctx.strokeStyle = 'rgba(76,195,138,0.85)';
+    ctx.fillStyle = 'rgba(76,195,138,0.12)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    for (const r of [stem, bar]) {
+      ctx.beginPath();
+      ctx.roundRect(r.cx - r.hw, r.cy - r.hh, r.hw * 2, r.hh * 2, 4);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // T 块（成功时变绿）
+    const okCol = success ? '#5cd6a0' : '#9aa7b0';
+    drawT(block.x, block.y, block.a, okCol, '#cfd8de');
+
+    // 圆盘
+    ctx.beginPath();
+    ctx.arc(puck.x, puck.y, puckR, 0, Math.PI * 2);
+    ctx.fillStyle = '#eef3f7';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // ---------- 主循环 ----------
+  function loop() {
+    step();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 鼠标控制 ----------
+  let dragging = false;
+  function setPuckFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = W / rect.width, scaleY = H / rect.height;
+    puck.x = clamp((e.clientX - rect.left) * scaleX, puckR, W - puckR);
+    puck.y = clamp((e.clientY - rect.top) * scaleY, puckR, H - puckR);
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    if (mode !== 'manual') return;
+    dragging = true;
+    canvas.setPointerCapture(e.pointerId);
+    setPuckFromEvent(e);
+  });
+  canvas.addEventListener('pointermove', (e) => { if (dragging && mode === 'manual') setPuckFromEvent(e); });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+  // ---------- 按钮 ----------
+  function setMode(m) {
+    mode = m;
+    ['manual', 'auto', 'random'].forEach(k => {
+      document.getElementById('mode' + k[0].toUpperCase() + k.slice(1)).classList.toggle('active', k === m);
+    });
+    if (m === 'random') setBanner('随机动作：圆盘乱动，块基本推不动 —— 这就是没训练的样子', '');
+    else if (m === 'auto') setBanner('自动演示：策略绕到块背后，把它推向目标……', '');
+    else setBanner('按住拖动白色圆盘，把 T 块推到绿色目标上', '');
+  }
+  document.getElementById('modeManual').addEventListener('click', () => setMode('manual'));
+  document.getElementById('modeAuto').addEventListener('click', () => setMode('auto'));
+  document.getElementById('modeRandom').addEventListener('click', () => setMode('random'));
+  document.getElementById('resetBtn').addEventListener('click', () => reset(false));
+  document.getElementById('newTargetBtn').addEventListener('click', () => reset(true));
+
+  reset(false);
+  loop();
+})();
+</script>
+</body>
+</html>
