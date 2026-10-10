@@ -15,6 +15,10 @@
 
 </div>
 
+> 🎮 **在线体验：PushT 推方块 Demo**（无需安装，浏览器直接玩）
+> 零依赖的浏览器复刻，直观理解「模仿学习 / 行为克隆」在训练什么。
+> 👉 **<https://rio888414.github.io/lerobot-test/pusht-demo/>** · 说明见 [`pusht-demo/README.md`](./pusht-demo/README.md)
+
 **LeRobot** aims to provide models, datasets, and tools for real-world robotics in PyTorch. The goal is to lower the barrier to entry so that everyone can contribute to and benefit from shared datasets and pretrained models.
 
 🤗 A hardware-agnostic, Python-native interface that standardizes control across diverse platforms, from low-cost arms (SO-100) to humanoids.
